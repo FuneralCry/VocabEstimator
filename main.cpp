@@ -5,10 +5,10 @@
 #include <math.h>
 #include <ctime>
 
-#define DICT_FILE "words_ru_sorted.txt"
+#define DICT_FILE "words_en_sorted.txt"
 #define DISP_CONST_W 0.2
 #define DISP_CONST_R 0.03
-#define DISP_CONST 600
+#define DISP_CONST 1000
 #define EPS 10e-10
 
 typedef std::vector<std::string> Dict;
@@ -130,7 +130,7 @@ int main()
             ++right;
             word_answ[mean] = 1;
         }
-        disp = (double)DISP_CONST/(std::max((double)1, DISP_CONST_W*double(wrong)+1) * (std::max((double)1,-DISP_CONST_R*double(right)+1.5)));
+        disp = (double)DISP_CONST/(std::min((double)1.5, DISP_CONST_W*double(wrong)+1) * std::max((double)1,-DISP_CONST_R*double(right)+1.5));
         std::cout << disp << '\n';
         std::cout << mean << '\n';
     }
