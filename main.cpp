@@ -53,7 +53,6 @@ int main()
             }
             mean = (l+r)/2;
             disp = mean-l;
-            std::cout << mean << ' ' << disp << '\n';
             ++count;
             continue;
         }
@@ -71,7 +70,6 @@ int main()
             word_answ[word_ind] = 1;
         }
         ++count;
-        std::cout << count << '\n';
     }
 
     std::cout << '\n' << "Your vocabulary size is: " << getVocabSize(getDistr(word_answ,dict.size()),dict.size());
