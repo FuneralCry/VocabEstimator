@@ -1,105 +1,4 @@
-#include <iostream>
-#include <fstream>
-#include <random>
-#include <vector>
-#include <math.h>
-#include <ctime>
-
-#define DICT_FILE "words_en_sorted.txt"
-#define DISP_CONST_W 0.2
-#define DISP_CONST_R 0.03
-#define DISP_CONST 1000
-#define EPS 10e-10
-
-typedef std::vector<std::string> Dict;
-
-std::vector<std::string> getDict(Dict& dict)
-{
-    std::fstream df;
-    df.open(DICT_FILE);
-    if(df.is_open())
-    {
-        std::string word;
-        while(std::getline(df,word))
-            dict.push_back(word);
-    }
-    else
-        throw 1;
-    df.close();
-
-    return dict;
-}
-
-void getWord(Dict& dict, unsigned int& mean, unsigned int disp)
-{
-    std::random_device rd;
-    std::mt19937 gen{rd()};
-    std::normal_distribution<> rnd{0,(double)disp};
-    mean += std::abs(std::round(rnd(gen)));
-}
-
-double* getDistr(int* word_answ, unsigned int size)
-{
-    int w,r;
-    double* distr = new double[size];
-    for(int i(0); i < 2000; ++i)
-    {
-        if(word_answ[i] == 0)
-            ++w;
-        else if(word_answ[i] == 1)
-            ++r;
-    }
-    distr[1000] = (double)r/double(w+r);
-    for(int i(1001); i < size-1001; ++i)
-    {
-        if(word_answ[i+1000] == 1)
-            ++r;
-        else if(word_answ[i+1000] == 0)
-            ++w;
-        if(word_answ[i-1001] == 1)
-            --r;
-        else if(word_answ[i-1001] == 0)
-            --w;
-        distr[i] = (double)r/double(w+r+EPS);
-    }
-    w = r = 0;
-    for(int i(0); i < 1000; ++i)
-    {
-        if(word_answ[i] == 0)
-            ++w;
-        else if(word_answ[i] == 1)
-            ++r;
-    }
-    for(int i(0); i < 1000; ++i)
-    {
-        if(word_answ[i+1000] == 1)
-            ++r;
-        else if(word_answ[i+1000] == 0)
-            ++w;
-        distr[i] = (double)r/double(w+r+EPS);
-    }
-    w = r = 0;
-    for(int i(size-1001); i < size; ++i)
-    {
-        if(word_answ[i-1001] == 1)
-            --r;
-        else if(word_answ[i-1001] == 0)
-            --w;
-        distr[i] = (double)r/double(w+r+EPS);
-    }
-
-    return distr;
-}
-
-int getVocabSize(double* distr, int size)
-{
-    double res(0);
-
-    for(int i(0); i < size; ++i)
-        res += distr[i];
-    
-    return (int)res / 100 * 100;
-}
+#include "get.h"
 
 int main()
 {
@@ -111,28 +10,68 @@ int main()
 
     for(int i(0); i < dict.size(); ++i)
         word_answ[i] = -1;
+
+    unsigned int count(0),word_ind;
     
     while(true)
     {
-        getWord(dict,mean,disp);
-        if(mean >= dict.size())
+        if(count > 100)
             break;
-        std::string word(dict[mean]),answ;
+        if(count < PHASE_PAR)
+            word_ind = getWord1(dict);
+        else if(count > PHASE_PAR)
+            word_ind = getWord2(dict,mean,disp);
+        else
+        {
+            double* distr = getDistr(word_answ,dict.size());
+            double* distr_smooth = smooth(distr,dict.size(),SMOOTH_WINDOW);
+            
+            int mn(100000);
+            long l(0),r(0);
+            for(long i(0); i < dict.size(); ++i)
+            {
+                if(distr_smooth[i] < UPPER_BND and i < mn)
+                {
+                    l = i;
+                    mn = i;
+                }
+                else if(distr_smooth[i] < LOWER_BND)
+                {
+                    r = i;
+                    break;
+                }
+            }
+            if(std::abs(l-r) < 10)
+            {
+                std::cerr << "Whether your answers was not real or your vocabulary is very large" << '\n';
+                throw 1;
+            }
+            else if(l > r)
+            {
+                std::cerr << "Please, give real answers!" << '\n';
+                throw 1;
+            }
+            mean = (l+r)/2;
+            disp = mean-l;
+            std::cout << mean << ' ' << disp << '\n';
+            ++count;
+            continue;
+        }
+        std::string word(dict[word_ind]),answ;
         std::cout << "Do you know word '" << word << "'?(Y/n)" << '\n';
         std::cin >> answ;
         if(answ == "N" or answ == "n")
         {
             ++wrong;
-            word_answ[mean] = 0;
+            word_answ[word_ind] = 0;
         }
         else
         {
             ++right;
-            word_answ[mean] = 1;
+            word_answ[word_ind] = 1;
         }
-        disp = (double)DISP_CONST/(std::min((double)1.5, DISP_CONST_W*double(wrong)+1) * std::max((double)1,-DISP_CONST_R*double(right)+1.5));
-        std::cout << disp << '\n';
-        std::cout << mean << '\n';
+        ++count;
+        std::cout << count << '\n';
     }
 
     std::cout << '\n' << "Your vocabulary size is: " << getVocabSize(getDistr(word_answ,dict.size()),dict.size());
